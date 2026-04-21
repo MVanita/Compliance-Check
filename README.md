@@ -12,4 +12,4 @@ ComplianceCheck leur donne une première visibilité sur leur posture de conform
 - 🔒 **0 donnée collectée** — 100% client-side  ## 
 🚀 Demo  👉 [Accéder à ComplianceCheck](https://mvanita.github.io/Compliance-Check/)
 ## 📚 Cadres de référence  | Framework | Couverture | |-----------|-----------| | ISO 27001:2022 | Annexe A (contrôles A.5 à A.8) | | NIS2 | Art. 21 (mesures) & Art. 23 (notification) | | RGPD | Obligations DPO, registre des traitements |  ## 🛠️ Stack technique  HTML5 · CSS3 · JavaScript vanilla · Chart.js · jsPDF  Aucune dépendance serveur — fonctionne entièrement dans le navigateur.  ##
-👩‍💻 Auteur  Marina — Étudiante ingénieure cybersécurité (ESILV) Spécialisation : DevSecOps · Cloud · GRC  [LinkedIn](https://linkedin.com/in/marinavanitafouodjongnitedemo)
+👩‍💻 Auteur  Marina — Étudiante ingénieure cybersécurité (ESILV) Spécialisation :Cybersecurite · DevSecOps · Cloud · GRC  [LinkedIn](https://linkedin.com/in/marinavanitafouodjongnitedemo)
