@@ -3,322 +3,219 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>ComplianceCheck — Auto-évaluation ISO 27001 / NIS2</title>
+<title>ComplianceCheck — Où en est vraiment votre sécurité ?</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root {
-    --bg: #0a0a0f;
-    --surface: #12121a;
-    --card: #1a1a26;
-    --border: #2a2a40;
-    --accent: #00e5a0;
-    --accent2: #7c3aed;
-    --warn: #f59e0b;
-    --danger: #ef4444;
-    --text: #e8e8f0;
-    --muted: #6b6b8a;
-    --font-mono: 'Space Mono', monospace;
-    --font-body: 'DM Sans', sans-serif;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-body);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* ── NOISE TEXTURE ── */
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none; z-index: 0; opacity: 0.4;
-  }
-
-  /* ── GLOW BG ── */
-  .glow-bg {
-    position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
-    width: 800px; height: 600px;
-    background: radial-gradient(ellipse, rgba(0,229,160,0.06) 0%, transparent 70%);
-    pointer-events: none; z-index: 0;
-  }
-
-  /* ── LAYOUT ── */
-  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
-
-  /* ── HEADER ── */
-  header {
-    padding: 48px 0 32px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 40px;
-  }
-
-  .badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3);
-    color: var(--accent); font-family: var(--font-mono); font-size: 11px;
-    padding: 4px 12px; border-radius: 4px; margin-bottom: 20px; letter-spacing: 0.08em;
-  }
-
-  .badge::before { content: '●'; font-size: 8px; animation: blink 2s infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  h1 {
-    font-family: var(--font-mono); font-size: clamp(28px, 5vw, 42px);
-    font-weight: 700; line-height: 1.1; margin-bottom: 12px;
-    letter-spacing: -0.02em;
-  }
-
-  h1 span { color: var(--accent); }
-
-  .subtitle {
-    color: var(--muted); font-size: 15px; font-weight: 300; line-height: 1.6;
-    max-width: 520px;
-  }
-
-  /* ── PROGRESS BAR ── */
-  .progress-wrapper {
-    margin-bottom: 32px;
-    display: flex; align-items: center; gap: 16px;
-  }
-
-  .progress-bar-bg {
-    flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
-  }
-
-  .progress-bar-fill {
-    height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
-    border-radius: 2px; transition: width 0.5s cubic-bezier(.4,0,.2,1);
-    width: 0%;
-  }
-
-  .progress-label {
-    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
-    white-space: nowrap;
-  }
-
-  /* ── SECTION TABS ── */
-  .section-tabs {
-    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 28px;
-  }
-
-  .section-tab {
-    font-family: var(--font-mono); font-size: 11px; padding: 6px 14px;
-    border-radius: 4px; border: 1px solid var(--border);
-    background: transparent; color: var(--muted); cursor: pointer;
-    transition: all 0.2s; letter-spacing: 0.05em;
-  }
-
-  .section-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.08); }
-  .section-tab.done { border-color: var(--accent2); color: var(--accent2); background: rgba(124,58,237,0.08); }
-
-  /* ── QUESTION CARD ── */
-  .question-card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 28px; margin-bottom: 16px;
-    transition: border-color 0.2s, transform 0.2s;
-    animation: slideIn 0.3s ease;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .question-card:hover { border-color: rgba(0,229,160,0.3); }
-  .question-card.answered { border-color: rgba(124,58,237,0.4); }
-
-  .question-meta {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 14px;
-  }
-
-  .question-tag {
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
-    color: var(--muted); text-transform: uppercase;
-  }
-
-  .question-risk {
-    font-size: 10px; font-family: var(--font-mono); padding: 2px 8px;
-    border-radius: 3px; font-weight: 700;
-  }
-
-  .risk-high { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
-  .risk-medium { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
-  .risk-low { background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.3); }
-
-  .question-text {
-    font-size: 15px; font-weight: 500; line-height: 1.5; margin-bottom: 18px; color: var(--text);
-  }
-
-  .options {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;
-  }
-
-  .option-btn {
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--muted); font-family: var(--font-body); font-size: 13px;
-    padding: 10px 14px; border-radius: 8px; cursor: pointer;
-    transition: all 0.2s; text-align: center; font-weight: 500;
-  }
-
-  .option-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.06); }
-
-  .option-btn.selected-0 { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.1); }
-  .option-btn.selected-1 { border-color: #f59e0b; color: #f59e0b; background: rgba(245,158,11,0.1); }
-  .option-btn.selected-2 { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.1); }
-  .option-btn.selected-3 { border-color: var(--accent); color: var(--accent); background: rgba(0,229,160,0.1); }
-
-  /* ── NAVIGATION ── */
-  .nav-btns {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-top: 32px; margin-bottom: 48px;
-  }
-
-  .btn {
-    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em;
-    padding: 12px 28px; border-radius: 6px; cursor: pointer;
-    border: none; transition: all 0.2s; font-weight: 700;
-  }
-
-  .btn-outline {
-    background: transparent; border: 1px solid var(--border); color: var(--muted);
-  }
-  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-
-  .btn-primary {
-    background: var(--accent); color: #0a0a0f;
-  }
-  .btn-primary:hover { background: #00ffb3; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,229,160,0.3); }
-  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
-
-  /* ── RESULTS ── */
-  #results { display: none; }
-
-  .score-hero {
-    text-align: center; padding: 48px 0;
-    border-bottom: 1px solid var(--border); margin-bottom: 40px;
-  }
-
-  .score-ring {
-    width: 160px; height: 160px; margin: 0 auto 24px;
-    position: relative; display: flex; align-items: center; justify-content: center;
-  }
-
-  .score-ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
-
-  .score-number {
-    font-family: var(--font-mono); font-size: 48px; font-weight: 700; line-height: 1;
-    position: relative; z-index: 1;
-  }
-
-  .score-label {
-    font-family: var(--font-mono); font-size: 11px; color: var(--muted);
-    letter-spacing: 0.15em; margin-top: 12px; text-transform: uppercase;
-  }
-
-  .maturity-badge {
-    display: inline-block; margin-top: 16px;
-    font-family: var(--font-mono); font-size: 14px; font-weight: 700;
-    padding: 8px 20px; border-radius: 6px;
-  }
-
-  .domain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; }
-  @media(max-width:600px){ .domain-grid { grid-template-columns: 1fr; } }
-
-  .domain-card {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px;
-  }
-
-  .domain-name { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 8px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .domain-score { font-size: 28px; font-weight: 600; font-family: var(--font-mono); }
-  .domain-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
-  .domain-bar-fill { height: 100%; border-radius: 2px; }
-
-  /* ── REMEDIATIONS ── */
-  .section-title {
-    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.15em;
-    color: var(--muted); text-transform: uppercase; margin-bottom: 16px;
-    display: flex; align-items: center; gap: 10px;
-  }
-
-  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-  .remediation-item {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 10px; padding: 20px; margin-bottom: 12px;
-    border-left: 3px solid transparent;
-  }
-
-  .remediation-item.prio-high { border-left-color: #ef4444; }
-  .remediation-item.prio-medium { border-left-color: #f59e0b; }
-  .remediation-item.prio-low { border-left-color: var(--accent); }
-
-  .remediation-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
-  .remediation-q { font-size: 14px; font-weight: 500; flex: 1; }
-  .remediation-rec { font-size: 13px; color: var(--muted); line-height: 1.5; }
-
-  .chart-wrapper { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 40px; }
-
-  .export-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
-
-  /* ── INTRO SCREEN ── */
-  #intro { padding: 20px 0; }
-
-  .intro-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 32px 0; }
-  @media(max-width:600px){ .intro-grid { grid-template-columns: 1fr; } }
-
-  .intro-card {
-    background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px;
-  }
-
-  .intro-card-icon { font-size: 24px; margin-bottom: 10px; }
-  .intro-card-title { font-family: var(--font-mono); font-size: 12px; color: var(--accent); margin-bottom: 6px; }
-  .intro-card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
-
-  /* hidden */
-  .hidden { display: none !important; }
+:root{--bg:#0a0a0f;--surface:#12121a;--card:#1a1a26;--border:#2a2a40;--accent:#00e5a0;--accent2:#7c3aed;--warn:#f59e0b;--danger:#ef4444;--text:#e8e8f0;--muted:#6b6b8a;--font-mono:'Space Mono',monospace;--font-body:'DM Sans',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4;}
+.glow-bg{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(0,229,160,.06) 0%,transparent 70%);pointer-events:none;z-index:0;}
+.container{max-width:880px;margin:0 auto;padding:0 24px;position:relative;z-index:1;}
+header{padding:48px 0 32px;border-bottom:1px solid var(--border);margin-bottom:40px;}
+.badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:var(--accent);font-family:var(--font-mono);font-size:11px;padding:4px 12px;border-radius:4px;margin-bottom:20px;letter-spacing:.08em;}
+.badge::before{content:'●';font-size:8px;animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+h1{font-family:var(--font-mono);font-size:clamp(28px,5vw,42px);font-weight:700;line-height:1.1;margin-bottom:12px;letter-spacing:-.02em;}
+h1 span{color:var(--accent);}
+.subtitle{color:var(--muted);font-size:15px;font-weight:300;line-height:1.7;max-width:560px;}
+.onboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:28px 0;}
+@media(max-width:600px){.onboard-grid{grid-template-columns:1fr;}}
+.onboard-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.onboard-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+.onboard-options{display:flex;flex-direction:column;gap:8px;}
+.onboard-opt{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:var(--font-body);font-size:13px;padding:10px 14px;border-radius:8px;cursor:pointer;text-align:left;transition:all .2s;display:flex;align-items:center;}
+.onboard-opt:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.06);}
+.onboard-opt.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.1);}
+.nis2-badge{display:inline-block;padding:6px 14px;border-radius:6px;font-family:var(--font-mono);font-size:12px;font-weight:700;margin-top:16px;}
+.history-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px;}
+.history-title{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px;}
+.history-item{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;transition:border-color .2s;}
+.history-item:hover{border-color:var(--accent2);}
+.history-date{font-family:var(--font-mono);font-size:11px;color:var(--muted);}
+.history-score{font-family:var(--font-mono);font-size:16px;font-weight:700;}
+.history-sector{font-size:12px;color:var(--muted);margin-top:2px;}
+.btn-icon{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;padding:4px 10px;border-radius:4px;cursor:pointer;transition:all .2s;}
+.btn-icon:hover{border-color:var(--danger);color:var(--danger);}
+.progress-wrapper{margin-bottom:32px;display:flex;align-items:center;gap:16px;}
+.progress-bar-bg{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1);width:0%;}
+.progress-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);white-space:nowrap;}
+.section-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px;}
+.section-tab{font-family:var(--font-mono);font-size:11px;padding:6px 14px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;letter-spacing:.05em;}
+.section-tab.active{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.08);}
+.section-tab.done{border-color:var(--accent2);color:var(--accent2);background:rgba(124,58,237,.08);}
+.question-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:16px;transition:border-color .2s;animation:slideIn .3s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.question-card:hover{border-color:rgba(0,229,160,.3);}
+.question-card.answered{border-color:rgba(124,58,237,.4);}
+.question-card.priority{border-left:3px solid #ef4444;}
+.question-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+.question-tag{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;}
+.question-badges{display:flex;gap:6px;align-items:center;}
+.question-risk{font-size:10px;font-family:var(--font-mono);padding:2px 8px;border-radius:3px;font-weight:700;}
+.priority-star{font-size:10px;font-family:var(--font-mono);padding:2px 8px;border-radius:3px;font-weight:700;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
+.risk-high{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);}
+.risk-medium{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);}
+.risk-low{background:rgba(0,229,160,.1);color:var(--accent);border:1px solid rgba(0,229,160,.3);}
+.question-text{font-size:15px;font-weight:500;line-height:1.6;margin-bottom:18px;color:var(--text);}
+.options{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;}
+.option-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-family:var(--font-body);font-size:13px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;font-weight:500;}
+.option-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.06);}
+.option-btn.selected-0{border-color:#ef4444;color:#ef4444;background:rgba(239,68,68,.1);}
+.option-btn.selected-1{border-color:#f59e0b;color:#f59e0b;background:rgba(245,158,11,.1);}
+.option-btn.selected-2{border-color:#3b82f6;color:#3b82f6;background:rgba(59,130,246,.1);}
+.option-btn.selected-3{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,.1);}
+.nav-btns{display:flex;justify-content:space-between;align-items:center;margin-top:32px;margin-bottom:48px;}
+.btn{font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;padding:12px 28px;border-radius:6px;cursor:pointer;border:none;transition:all .2s;font-weight:700;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+.btn-primary{background:var(--accent);color:#0a0a0f;}
+.btn-primary:hover{background:#00ffb3;transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,229,160,.3);}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-ai{background:linear-gradient(135deg,var(--accent2),#a855f7);color:#fff;border:none;}
+.btn-ai:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 8px 24px rgba(124,58,237,.4);}
+.btn-save{background:transparent;border:1px solid var(--accent2);color:var(--accent2);}
+.btn-save:hover{background:rgba(124,58,237,.1);}
+#results{display:none;}
+.score-hero{text-align:center;padding:48px 0;border-bottom:1px solid var(--border);margin-bottom:40px;}
+.score-ring{width:160px;height:160px;margin:0 auto 24px;position:relative;display:flex;align-items:center;justify-content:center;}
+.score-ring svg{position:absolute;top:0;left:0;transform:rotate(-90deg);}
+.score-number{font-family:var(--font-mono);font-size:48px;font-weight:700;line-height:1;position:relative;z-index:1;}
+.score-label{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.15em;margin-top:12px;text-transform:uppercase;}
+.maturity-badge{display:inline-block;margin-top:16px;font-family:var(--font-mono);font-size:14px;font-weight:700;padding:8px 20px;border-radius:6px;}
+.context-pill{display:inline-flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);font-family:var(--font-mono);}
+.domain-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:40px;}
+@media(max-width:600px){.domain-grid{grid-template-columns:1fr;}}
+.domain-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;}
+.domain-name{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:.08em;text-transform:uppercase;}
+.domain-score{font-size:28px;font-weight:600;font-family:var(--font-mono);}
+.domain-bar{height:3px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden;}
+.domain-bar-fill{height:100%;border-radius:2px;}
+.ai-panel{background:var(--card);border:1px solid rgba(124,58,237,.4);border-radius:12px;padding:28px;margin-bottom:32px;position:relative;overflow:hidden;}
+.ai-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));}
+.ai-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+.ai-icon{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--accent2),#a855f7);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.ai-title{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--text);}
+.ai-subtitle{font-size:11px;color:var(--muted);}
+.ai-content{font-size:14px;line-height:1.8;color:var(--text);}
+.ai-loading{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:pulse 1.2s ease-in-out infinite;}
+.ai-dot:nth-child(2){animation-delay:.2s;}
+.ai-dot:nth-child(3){animation-delay:.4s;}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+.section-title{font-family:var(--font-mono);font-size:12px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.remediation-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:12px;border-left:3px solid transparent;}
+.remediation-item.prio-high{border-left-color:#ef4444;}
+.remediation-item.prio-medium{border-left-color:#f59e0b;}
+.remediation-item.prio-low{border-left-color:var(--accent);}
+.remediation-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px;}
+.remediation-q{font-size:14px;font-weight:500;flex:1;}
+.remediation-rec{font-size:13px;color:var(--muted);line-height:1.6;}
+.chart-wrapper{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:40px;}
+.export-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:48px;}
+#intro{padding:20px 0;}
+.intro-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:32px 0;}
+@media(max-width:600px){.intro-grid{grid-template-columns:1fr;}}
+.intro-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;}
+.intro-card-icon{font-size:22px;margin-bottom:10px;color:var(--accent);}
+.intro-card-title{font-family:var(--font-mono);font-size:12px;color:var(--accent);margin-bottom:6px;}
+.intro-card-desc{font-size:13px;color:var(--muted);line-height:1.6;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;width:90%;}
+.modal-title{font-family:var(--font-mono);font-size:16px;font-weight:700;margin-bottom:8px;}
+.modal-desc{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:20px;}
+.modal-input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:12px 16px;border-radius:8px;outline:none;transition:border-color .2s;}
+.modal-input:focus{border-color:var(--accent2);}
+.modal-btns{display:flex;gap:10px;margin-top:16px;}
+.modal-note{font-size:11px;color:var(--muted);margin-top:12px;line-height:1.6;}
+.hidden{display:none!important;}
 </style>
 </head>
 <body>
 <div class="glow-bg"></div>
-
 <div class="container">
+
   <header>
-    <div class="badge">OPEN SOURCE TOOL · v1.0</div>
+    <div class="badge">gratuit · open source · sans compte</div>
     <h1>Compliance<span>Check</span></h1>
-    <p class="subtitle">Auto-évaluation de maturité cyber-conformité ISO 27001 & NIS2 pour PME et startups. Résultat instantané, plan de remédiation priorisé.</p>
+    <p class="subtitle">La plupart des PME ne savent pas vraiment où elles en sont sur ISO 27001 et NIS2 — faute de temps, pas de compétences. En 5 minutes, vous avez une réponse honnête et un plan concret.</p>
   </header>
 
   <!-- INTRO -->
   <div id="intro">
     <div class="intro-grid">
       <div class="intro-card">
-        <div class="intro-card-icon">🔐</div>
-        <div class="intro-card-title">ISO 27001</div>
-        <div class="intro-card-desc">Contrôles de l'Annexe A couvrant gouvernance, accès, cryptographie, continuité et plus.</div>
+        <div class="intro-card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <div class="intro-card-title">25 questions qui comptent</div>
+        <div class="intro-card-desc">On couvre les 7 sujets qui font vraiment la différence : gouvernance, accès, chiffrement, incidents, réseau, continuité, conformité légale.</div>
       </div>
       <div class="intro-card">
-        <div class="intro-card-icon">🇪🇺</div>
-        <div class="intro-card-title">NIS2</div>
-        <div class="intro-card-desc">Exigences de la directive européenne : gestion des risques, incidents, chaîne d'approvisionnement.</div>
+        <div class="intro-card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
+        <div class="intro-card-title">Une analyse faite pour vous</div>
+        <div class="intro-card-desc">Pas un rapport générique. Une lecture de vos résultats qui tient compte de votre secteur, votre taille, et vos obligations NIS2 réelles.</div>
       </div>
       <div class="intro-card">
-        <div class="intro-card-icon">📊</div>
-        <div class="intro-card-title">Score & Rapport</div>
-        <div class="intro-card-desc">Score de maturité par domaine, radar chart et plan de remédiation exportable en PDF.</div>
+        <div class="intro-card-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+        <div class="intro-card-title">Revenez dans 3 mois</div>
+        <div class="intro-card-desc">Sauvegardez votre score et revenez après avoir avancé. La progression se voit sur un graphe — c'est motivant, et ça se montre à la direction.</div>
       </div>
     </div>
-    <div style="text-align:center; margin-top: 8px;">
-      <button class="btn btn-primary" onclick="startQuiz()">DÉMARRER L'ÉVALUATION →</button>
-      <p style="margin-top:16px; font-size:13px; color:var(--muted);">⏱ ~5 minutes · 25 questions · Aucune donnée collectée</p>
+
+    <div id="historySection" class="hidden">
+      <div class="history-panel">
+        <div class="history-title">Vos évaluations passées</div>
+        <div id="historyList"></div>
+        <div id="compareSection" class="hidden" style="margin-top:20px;">
+          <div class="chart-wrapper"><canvas id="compareChart" height="120"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:8px;">
+      <button class="btn btn-primary" onclick="showScreen('onboarding')">Faire le diagnostic →</button>
+      <p style="margin-top:16px;font-size:13px;color:var(--muted);">5 minutes · aucune donnée envoyée · résultats immédiats</p>
+    </div>
+  </div>
+
+  <!-- ONBOARDING -->
+  <div id="onboarding" class="hidden">
+    <div style="margin-bottom:24px;">
+      <div class="badge">avant de commencer</div>
+      <h2 style="font-family:var(--font-mono);font-size:22px;margin-top:12px;margin-bottom:10px;">Deux questions rapides sur votre organisation</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.6;">Votre secteur et votre taille changent ce qui est obligatoire pour vous. On adapte les questions en conséquence — et on vous dit tout de suite si NIS2 vous concerne vraiment.</p>
+    </div>
+    <div class="onboard-grid">
+      <div class="onboard-card">
+        <div class="onboard-label">Dans quel secteur êtes-vous ?</div>
+        <div class="onboard-options" id="sectorOpts">
+          <button class="onboard-opt" onclick="selectOnboard('sector','Énergie / Utilities',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Énergie / Utilities</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Santé',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Santé</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Finance / Banque',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Finance / Banque</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Transport / Logistique',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Transport / Logistique</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Technologies / SaaS',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Technologies / SaaS</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Commerce / Retail',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Commerce / Retail</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Administration publique',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/></svg>Administration publique</button>
+          <button class="onboard-opt" onclick="selectOnboard('sector','Autre',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Autre secteur</button>
+        </div>
+      </div>
+      <div class="onboard-card">
+        <div class="onboard-label">Combien de personnes dans votre organisation ?</div>
+        <div class="onboard-options">
+          <button class="onboard-opt" onclick="selectOnboard('size','Micro (< 10 employés)',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Moins de 10 personnes</button>
+          <button class="onboard-opt" onclick="selectOnboard('size','Petite (10-49)',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>10 à 49 personnes</button>
+          <button class="onboard-opt" onclick="selectOnboard('size','Moyenne (50-249)',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><rect x="2" y="7" width="20" height="14" rx="1"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>50 à 249 personnes</button>
+          <button class="onboard-opt" onclick="selectOnboard('size','Grande (250+)',this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px;flex-shrink:0"><line x1="3" y1="22" x2="21" y2="22"/><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="7" x2="9" y2="7"/><line x1="15" y1="7" x2="15" y2="7"/><line x1="9" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="15" y2="12"/><line x1="9" y1="17" x2="9" y2="17"/><line x1="15" y1="17" x2="15" y2="17"/></svg>250 personnes et plus</button>
+        </div>
+        <div id="nis2Result" style="margin-top:20px;"></div>
+      </div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-outline" onclick="showScreen('intro')">← Retour</button>
+      <button class="btn btn-primary" id="startQuizBtn" disabled onclick="startQuiz()">Commencer le diagnostic →</button>
     </div>
   </div>
 
@@ -331,8 +228,8 @@
     <div class="section-tabs" id="sectionTabs"></div>
     <div id="questionsContainer"></div>
     <div class="nav-btns">
-      <button class="btn btn-outline" id="prevBtn" onclick="prevSection()">← PRÉCÉDENT</button>
-      <button class="btn btn-primary" id="nextBtn" onclick="nextSection()">SUIVANT →</button>
+      <button class="btn btn-outline" onclick="prevSection()">← Précédent</button>
+      <button class="btn btn-primary" onclick="nextSection()">Suivant →</button>
     </div>
   </div>
 
@@ -341,342 +238,454 @@
     <div class="score-hero">
       <div class="score-ring">
         <svg width="160" height="160" viewBox="0 0 160 160">
-          <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border)" stroke-width="8"/>
-          <circle cx="80" cy="80" r="70" fill="none" stroke="var(--accent)" stroke-width="8"
-            stroke-linecap="round" id="scoreArc"
-            stroke-dasharray="439.82" stroke-dashoffset="439.82"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#2a2a40" stroke-width="8"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#00e5a0" stroke-width="8" stroke-linecap="round" id="scoreArc" stroke-dasharray="439.82" stroke-dashoffset="439.82"/>
         </svg>
+        <div><div class="score-number" id="globalScore">—</div><div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">/100</div></div>
+      </div>
+      <div class="score-label">Score de maturité global</div>
+      <div class="maturity-badge" id="maturityBadge"></div>
+      <div class="context-pill" id="contextPill"></div>
+    </div>
+
+    <div class="ai-panel">
+      <div class="ai-header">
+        <div class="ai-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
         <div>
-          <div class="score-number" id="globalScore">—</div>
-          <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">/100</div>
+          <div class="ai-title">Lecture de vos résultats par IA</div>
+          <div class="ai-subtitle">Une analyse rédigée selon ce que vous avez répondu — pas un rapport type</div>
         </div>
       </div>
-      <div class="score-label">Score de Maturité Global</div>
-      <div class="maturity-badge" id="maturityBadge"></div>
+      <div id="aiContent">
+        <button class="btn btn-ai" onclick="openApiKeyModal()" style="font-size:12px;display:inline-flex;align-items:center;gap:8px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Lire l'analyse IA</button>
+        <p style="margin-top:12px;font-size:12px;color:var(--muted);">Vous aurez besoin d'une clé API Anthropic. Elle reste dans votre navigateur, on n'y touche pas.</p>
+      </div>
     </div>
 
-    <div class="section-title">Résultats par domaine</div>
+    <div class="section-title">Par domaine</div>
     <div class="domain-grid" id="domainGrid"></div>
-
-    <div class="chart-wrapper">
-      <canvas id="radarChart" width="400" height="300"></canvas>
-    </div>
-
-    <div class="section-title">Plan de remédiation prioritaire</div>
+    <div class="chart-wrapper"><canvas id="radarChart" width="400" height="300"></canvas></div>
+    <div class="section-title">Ce qu'on vous recommande de faire en premier</div>
     <div id="remediationList"></div>
-
     <div class="export-row">
-      <button class="btn btn-outline" onclick="exportPDF()">📄 EXPORTER EN PDF</button>
-      <button class="btn btn-outline" onclick="location.reload()">↺ RECOMMENCER</button>
+      <button class="btn btn-save" onclick="saveEvaluation()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:7px;vertical-align:middle"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Sauvegarder ce résultat</button>
+      <button class="btn btn-outline" onclick="exportPDF()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:7px;vertical-align:middle"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Télécharger en PDF</button>
+      <button class="btn btn-outline" onclick="location.reload()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:7px;vertical-align:middle"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>Recommencer</button>
     </div>
   </div>
 </div>
 
+<!-- API KEY MODAL -->
+<div class="modal-overlay hidden" id="apiModal">
+  <div class="modal">
+    <div class="modal-title">Votre clé API Anthropic</div>
+    <div class="modal-desc">Pour générer l'analyse, l'outil a besoin d'accéder à Claude via votre propre clé API. Elle est sauvegardée dans votre navigateur uniquement — ni nous ni personne d'autre n'y a accès.</div>
+    <input class="modal-input" type="password" id="apiKeyInput" placeholder="sk-ant-..." />
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;" onclick="confirmApiKey()">Lancer l'analyse →</button>
+      <button class="btn btn-outline" onclick="closeApiKeyModal()">Annuler</button>
+    </div>
+    <div class="modal-note">Vous n'avez pas de clé ? Créez-en une gratuitement sur <strong>console.anthropic.com</strong>. L'analyse coûte moins de 0,01 € par rapport.</div>
+  </div>
+</div>
+
 <script>
-const QUESTIONS = [
-  // ── GOUVERNANCE (ISO A.5)
-  {id:'g1', domain:'Gouvernance', framework:'ISO 27001 A.5', risk:'high',
-   text:'Votre organisation dispose-t-elle d\'une politique de sécurité de l\'information formellement approuvée par la direction ?',
-   rec:'Rédiger et faire approuver une Politique de Sécurité des Systèmes d\'Information (PSSI) — document fondamental de toute démarche ISO 27001.'},
-  {id:'g2', domain:'Gouvernance', framework:'ISO 27001 A.5', risk:'high',
-   text:'Des rôles et responsabilités en matière de sécurité sont-ils clairement définis et communiqués ?',
-   rec:'Créer une matrice RACI cybersécurité et nommer un RSSI ou responsable sécurité, même à temps partiel.'},
-  {id:'g3', domain:'Gouvernance', framework:'NIS2 Art.21', risk:'medium',
-   text:'La direction est-elle impliquée dans les décisions de cybersécurité et reçoit-elle des rapports réguliers ?',
-   rec:'Mettre en place un tableau de bord sécurité mensuel présenté au COMEX. NIS2 impose la responsabilité de la direction.'},
-  {id:'g4', domain:'Gouvernance', framework:'ISO 27001 A.6', risk:'medium',
-   text:'Un processus de gestion des risques SI est-il formalisé et exécuté au moins annuellement ?',
-   rec:'Implémenter une analyse de risques selon ISO 27005 ou EBIOS RM. Documenter les actifs, menaces, vulnérabilités et traitements.'},
+const NIS2_CRITICAL=['Énergie / Utilities','Santé','Finance / Banque','Transport / Logistique','Administration publique'];
+const NIS2_IMPORTANT=['Technologies / SaaS'];
 
-  // ── CONTRÔLE D'ACCÈS (ISO A.8)
-  {id:'a1', domain:'Contrôle d\'accès', framework:'ISO 27001 A.8', risk:'high',
-   text:'Le principe du moindre privilège est-il appliqué : chaque utilisateur a-t-il uniquement les accès nécessaires à ses fonctions ?',
-   rec:'Conduire une revue des droits d\'accès trimestrielle. Mettre en place un processus IAM (Identity & Access Management) formalisé.'},
-  {id:'a2', domain:'Contrôle d\'accès', framework:'ISO 27001 A.8', risk:'high',
-   text:'Une authentification multifacteur (MFA) est-elle déployée sur les accès critiques (VPN, admin, cloud) ?',
-   rec:'Déployer MFA immédiatement sur tous les accès privilégiés. Utiliser TOTP, FIDO2 ou solutions comme Microsoft Authenticator.'},
-  {id:'a3', domain:'Contrôle d\'accès', framework:'ISO 27001 A.8', risk:'medium',
-   text:'Les comptes utilisateurs des employés partis sont-ils désactivés dans les 24h suivant leur départ ?',
-   rec:'Automatiser le processus offboarding : intégrer RH et IT via un workflow de désactivation immédiate des comptes.'},
-  {id:'a4', domain:'Contrôle d\'accès', framework:'NIS2 Art.21', risk:'high',
-   text:'Les accès distants (télétravail, partenaires) sont-ils sécurisés via VPN avec chiffrement fort ?',
-   rec:'Déployer un VPN Zero Trust (ex: WireGuard, Zscaler) ou solution ZTNA. Éviter les accès RDP directs exposés sur Internet.'},
+const QUESTIONS=[
+  // GOUVERNANCE
+  {id:'g1',domain:'Gouvernance',framework:'ISO 27001 A.5',risk:'high',sectors:'all',
+   text:'Est-ce que votre direction a formellement approuvé une politique de sécurité — un document qui dit clairement ce qui est interdit, qui est responsable, et ce qu\'on fait en cas de problème ?',
+   rec:'Sans politique de sécurité écrite et validée par la direction, tout le reste repose sur du vent. Commencez par un document d\'une page : ce qu\'on protège, pourquoi, et qui répond si ça déraille. C\'est la base de l\'ISO 27001.'},
+  {id:'g2',domain:'Gouvernance',framework:'ISO 27001 A.5',risk:'high',sectors:'all',
+   text:'Y a-t-il une personne dans votre organisation qui a explicitement la charge de la sécurité — même à temps partiel ? Quelqu\'un qu\'on peut appeler quand ça tourne mal ?',
+   rec:'Nommer un responsable sécurité (RSSI), même à 20% de son temps, change tout. Ça crée une adresse pour les problèmes, une voix dans les décisions, et une accountability claire. Sans ça, la sécurité appartient à tout le monde — donc à personne.'},
+  {id:'g3',domain:'Gouvernance',framework:'NIS2 Art.21',risk:'medium',sectors:'all',
+   text:'La direction reçoit-elle régulièrement des informations sur la situation de sécurité — incidents, risques, avancement — ou est-ce que ce sujet reste cantonné au service IT ?',
+   rec:'NIS2 est explicite là-dessus : la direction est responsable, pas seulement informée. Un point mensuel de 15 minutes avec 3 indicateurs suffit pour commencer. Ce qui compte, c\'est que les dirigeants sachent ce qui se passe et puissent trancher.'},
+  {id:'g4',domain:'Gouvernance',framework:'ISO 27001 A.6',risk:'medium',sectors:'all',
+   text:'Avez-vous déjà fait un exercice structuré pour lister ce qui pourrait vraiment faire mal à votre organisation — vol de données, ransomware, panne critique — et décidé comment vous y répondez ?',
+   rec:'Une analyse de risques n\'a pas besoin d\'être un projet de 6 mois. Un tableau avec vos actifs critiques, les scénarios réalistes, et ce que vous avez déjà mis en place suffit pour commencer. Méthode recommandée : EBIOS RM ou ISO 27005.'},
 
-  // ── CRYPTOGRAPHIE & DONNÉES (ISO A.8.24)
-  {id:'c1', domain:'Cryptographie', framework:'ISO 27001 A.8.24', risk:'high',
-   text:'Les données sensibles sont-elles chiffrées au repos (stockage) et en transit (réseau) ?',
-   rec:'Chiffrer les disques (BitLocker, LUKS), utiliser TLS 1.2+ pour tous les échanges. Auditer les flux non chiffrés.'},
-  {id:'c2', domain:'Cryptographie', framework:'ISO 27001 A.8.24', risk:'medium',
-   text:'Une politique de gestion des clés cryptographiques est-elle en place (rotation, stockage sécurisé) ?',
-   rec:'Utiliser un gestionnaire de secrets (HashiCorp Vault, AWS KMS). Documenter les cycles de vie des clés et planifier les rotations.'},
-  {id:'c3', domain:'Cryptographie', framework:'NIS2 Art.21', risk:'medium',
-   text:'Les sauvegardes sont-elles chiffrées et testées régulièrement (test de restauration) ?',
-   rec:'Appliquer la règle 3-2-1 (3 copies, 2 supports, 1 hors-site). Tester la restauration au minimum trimestriellement.'},
+  // CONTRÔLE D'ACCÈS
+  {id:'a1',domain:'Contrôle d\'accès',framework:'ISO 27001 A.8',risk:'high',sectors:'all',
+   text:'Est-ce que chaque employé accède uniquement à ce dont il a vraiment besoin pour faire son travail — ou est-ce que les droits s\'accumulent au fil du temps sans jamais être revus ?',
+   rec:'Les droits qui s\'accumulent sont l\'une des causes les plus fréquentes de fuites internes. Une revue trimestrielle des accès, même manuelle sur un tableur, suffit pour identifier les écarts les plus évidents. À terme : un processus IAM formalisé.'},
+  {id:'a2',domain:'Contrôle d\'accès',framework:'ISO 27001 A.8',risk:'high',sectors:'all',
+   text:'Les accès les plus sensibles — outils d\'administration, cloud, VPN — sont-ils protégés par une double vérification (code envoyé par SMS, application d\'authentification...) en plus du mot de passe ?',
+   rec:'Le MFA est probablement le meilleur rapport effort/impact en sécurité. Un mot de passe seul ne suffit plus — ils fuient, ils se devinent, ils se réutilisent. Commencez par les comptes admin et cloud. Microsoft Authenticator ou Google Authenticator font très bien le travail.'},
+  {id:'a3',domain:'Contrôle d\'accès',framework:'ISO 27001 A.8',risk:'medium',sectors:'all',
+   text:'Quand quelqu\'un quitte l\'organisation, ses accès sont-ils supprimés le jour même — ou est-ce que ça traîne parfois plusieurs jours, voire semaines ?',
+   rec:'Un ancien employé avec des accès actifs, c\'est une porte ouverte — intentionnellement ou pas. L\'idéal est un processus automatisé entre RH et IT. En attendant, une checklist de départ envoyée le dernier jour fait déjà beaucoup.'},
+  {id:'a4',domain:'Contrôle d\'accès',framework:'NIS2 Art.21',risk:'high',sectors:'all',
+   text:'Les personnes qui travaillent à distance ou vos partenaires externes passent-ils par un VPN ou un accès sécurisé équivalent — ou se connectent-ils directement à vos outils via Internet ?',
+   rec:'Un accès direct sur Internet sans protection, c\'est la cible préférée des attaquants. Un VPN moderne (WireGuard, par exemple) ou une solution Zero Trust Network Access règle ce problème. Évitez à tout prix les connexions RDP exposées directement.'},
 
-  // ── GESTION DES INCIDENTS (ISO A.5.24 + NIS2)
-  {id:'i1', domain:'Gestion des incidents', framework:'NIS2 Art.23', risk:'high',
-   text:'Votre organisation dispose-t-elle d\'une procédure formelle de gestion et notification des incidents de sécurité ?',
-   rec:'Rédiger un plan de réponse aux incidents (IRP). NIS2 exige une notification à l\'ANSSI sous 24h pour les incidents significatifs.'},
-  {id:'i2', domain:'Gestion des incidents', framework:'ISO 27001 A.5.26', risk:'high',
-   text:'Des logs de sécurité sont-ils collectés, centralisés et conservés avec une rétention suffisante (≥12 mois) ?',
-   rec:'Déployer un SIEM (ELK Stack, Splunk, Wazuh). Configurer la centralisation des logs serveurs, firewalls et applications critiques.'},
-  {id:'i3', domain:'Gestion des incidents', framework:'NIS2 Art.23', risk:'medium',
-   text:'Des exercices ou simulations d\'incidents (tabletop) sont-ils réalisés au moins une fois par an ?',
-   rec:'Organiser un exercice de crise cyber annuel impliquant direction, IT et équipes métier. Documenter les retours d\'expérience.'},
+  // CRYPTOGRAPHIE
+  {id:'c1',domain:'Cryptographie',framework:'ISO 27001 A.8.24',risk:'high',sectors:'all',
+   text:'Les données sensibles de votre organisation sont-elles chiffrées — que ce soit sur vos serveurs, vos ordinateurs portables, ou quand elles transitent sur le réseau ?',
+   rec:'Le chiffrement, c\'est ce qui rend vos données inutilisables même si quelqu\'un met la main dessus. Sur les postes de travail : BitLocker (Windows) ou FileVault (Mac), c\'est natif et gratuit. Sur le réseau : vérifiez que tout passe en HTTPS et TLS 1.2 minimum.'},
+  {id:'c2',domain:'Cryptographie',framework:'ISO 27001 A.8.24',risk:'medium',sectors:'all',
+   text:'Si vous utilisez des clés de chiffrement ou des mots de passe d\'application, y a-t-il un endroit sécurisé où ils sont stockés — et est-ce qu\'on les change régulièrement ?',
+   rec:'Des clés qui ne changent jamais et qui traînent dans des fichiers texte ou des emails, c\'est l\'un des risques les plus sous-estimés. Un gestionnaire de secrets comme HashiCorp Vault (open source) ou les services natifs AWS/Azure règlent ça proprement.'},
+  {id:'c3',domain:'Cryptographie',framework:'NIS2 Art.21',risk:'medium',sectors:'all',
+   text:'Vos sauvegardes sont-elles chiffrées ? Et surtout : avez-vous testé récemment que vous pouviez vraiment les restaurer quand vous en avez besoin ?',
+   rec:'Une sauvegarde non testée n\'est pas une sauvegarde. Appliquez la règle 3-2-1 : 3 copies, sur 2 supports différents, dont 1 hors site. Et planifiez un test de restauration tous les 3 mois — le jour où vous en avez vraiment besoin, ce n\'est pas le moment de découvrir un problème.'},
 
-  // ── SÉCURITÉ RÉSEAU (ISO A.8.20)
-  {id:'n1', domain:'Sécurité réseau', framework:'ISO 27001 A.8.20', risk:'high',
-   text:'Le réseau est-il segmenté (DMZ, VLAN) pour isoler les systèmes critiques des zones moins sécurisées ?',
-   rec:'Mettre en place une segmentation réseau : isoler serveurs de production, postes de travail et IoT dans des VLAN distincts.'},
-  {id:'n2', domain:'Sécurité réseau', framework:'ISO 27001 A.8.22', risk:'high',
-   text:'Un pare-feu (firewall) et/ou système de détection d\'intrusion (IDS/IPS) sont-ils en place et configurés ?',
-   rec:'Déployer un NGFW (Next-Gen Firewall) avec règles basées sur le principe de moindre privilège. Considérer un IDS comme Suricata.'},
-  {id:'n3', domain:'Sécurité réseau', framework:'NIS2 Art.21', risk:'medium',
-   text:'Les vulnérabilités des systèmes exposés sur Internet sont-elles scannées et corrigées régulièrement ?',
-   rec:'Mettre en place un programme de gestion des vulnérabilités : scanner mensuel (Nessus, OpenVAS), patch management sous 30 jours.'},
-  {id:'n4', domain:'Sécurité réseau', framework:'ISO 27001 A.8', risk:'medium',
-   text:'Les postes de travail disposent-ils tous d\'un antivirus/EDR à jour et d\'un chiffrement de disque ?',
-   rec:'Déployer un EDR (CrowdStrike, SentinelOne, Microsoft Defender for Endpoint) sur l\'ensemble du parc. Activer BitLocker/FileVault.'},
+  // GESTION DES INCIDENTS
+  {id:'i1',domain:'Gestion des incidents',framework:'NIS2 Art.23',risk:'high',sectors:'all',
+   text:'Si vous découvrez demain matin qu\'on a accédé à vos données sans autorisation, savez-vous exactement quoi faire — qui appeler, quoi couper, quoi documenter, qui notifier ?',
+   rec:'L\'absence de plan d\'urgence, c\'est ce qui transforme un incident gérable en catastrophe. Rédigez un document d\'une page : les 5 premières actions à faire, qui décide quoi, et comment notifier l\'ANSSI si nécessaire (obligatoire sous NIS2 dans les 24h pour les incidents significatifs).'},
+  {id:'i2',domain:'Gestion des incidents',framework:'ISO 27001 A.5.26',risk:'high',sectors:'all',
+   text:'Gardez-vous une trace de ce qui se passe sur vos systèmes — connexions, accès, erreurs — dans un endroit centralisé, consultable, conservé au moins 12 mois ?',
+   rec:'Sans logs, une investigation après incident devient une enquête à l\'aveugle. Centralisez au minimum les logs de vos pare-feux, serveurs et applications critiques. Des outils comme Wazuh (gratuit et open source) permettent de démarrer sans budget conséquent.'},
+  {id:'i3',domain:'Gestion des incidents',framework:'NIS2 Art.23',risk:'medium',sectors:'all',
+   text:'Avez-vous déjà simulé une crise cyber avec votre équipe — même informellement — pour voir comment vous réagissez et ce qui coince dans votre organisation ?',
+   rec:'Un exercice de crise n\'a pas besoin d\'être élaboré. Réunissez les bonnes personnes 2h, décrivez un scénario plausible (ransomware, fuite de données), et observez les décisions qui se prennent. Ce que vous apprenez en 2h vaut souvent des mois de documentation.'},
 
-  // ── CONTINUITÉ D'ACTIVITÉ (ISO A.5.29)
-  {id:'b1', domain:'Continuité', framework:'ISO 27001 A.5.29', risk:'high',
-   text:'Un Plan de Continuité d\'Activité (PCA) ou Plan de Reprise Informatique (PRI) est-il formalisé et testé ?',
-   rec:'Rédiger un BCP/DRP documentant les RTO et RPO par système critique. Tester le plan au minimum annuellement.'},
-  {id:'b2', domain:'Continuité', framework:'NIS2 Art.21', risk:'medium',
-   text:'Les dépendances critiques envers les prestataires et fournisseurs cloud sont-elles identifiées et contractualisées ?',
-   rec:'Cartographier la chaîne d\'approvisionnement IT. Inclure des clauses sécurité dans les contrats fournisseurs (SLA, audit droit).'},
+  // SÉCURITÉ RÉSEAU
+  {id:'n1',domain:'Sécurité réseau',framework:'ISO 27001 A.8.20',risk:'high',sectors:'all',
+   text:'Votre réseau est-il organisé en zones séparées — serveurs critiques isolés des postes de travail, IoT séparé du reste — ou est-ce que tout le monde voit tout le monde ?',
+   rec:'Un réseau plat, c\'est un buffet pour un attaquant : une fois dedans, il accède à tout. La segmentation en VLANs — postes de travail, serveurs de prod, équipements connectés — limite la propagation d\'une attaque et ralentit significativement les intrus.'},
+  {id:'n2',domain:'Sécurité réseau',framework:'ISO 27001 A.8.22',risk:'high',sectors:'all',
+   text:'Avez-vous un pare-feu qui filtre activement ce qui entre et sort de votre réseau — et quelque chose qui alerte quand un comportement anormal est détecté ?',
+   rec:'Un pare-feu basique qui laisse tout passer dans un sens, ça ne suffit plus. Un NGFW avec des règles de filtrage sortant et entrant, combiné à un IDS simple comme Suricata ou Wazuh, vous donne une visibilité réelle sur ce qui se passe sur votre réseau.'},
+  {id:'n3',domain:'Sécurité réseau',framework:'NIS2 Art.21',risk:'medium',sectors:'all',
+   text:'Scannez-vous régulièrement vos systèmes accessibles depuis Internet pour repérer les failles connues — et est-ce que les correctifs critiques sont appliqués rapidement ?',
+   rec:'Les attaquants utilisent des outils automatisés qui scannent Internet en permanence. Si une vulnérabilité critique est publiée, vous avez généralement 72h avant que des tentatives d\'exploitation commencent. Un scan mensuel avec OpenVAS ou Nessus Essentials, et un process de patch management sous 30 jours, changent radicalement votre exposition.'},
+  {id:'n4',domain:'Sécurité réseau',framework:'ISO 27001 A.8',risk:'medium',sectors:'all',
+   text:'Tous les postes de travail ont-ils un antivirus ou un EDR à jour — et les disques durs sont-ils chiffrés pour protéger les données en cas de vol ou de perte ?',
+   rec:'Un poste non chiffré volé, c\'est potentiellement toutes les données accessibles. BitLocker (Windows) et FileVault (Mac) sont gratuits et natifs. Pour la protection active, un EDR comme Microsoft Defender for Endpoint ou SentinelOne va beaucoup plus loin qu\'un antivirus classique.'},
 
-  // ── CONFORMITÉ RÉGLEMENTAIRE (ISO A.5.31 + RGPD)
-  {id:'r1', domain:'Conformité réglementaire', framework:'RGPD / ISO 27001', risk:'high',
-   text:'Un registre des traitements de données personnelles est-il maintenu et un DPO (ou référent RGPD) désigné ?',
-   rec:'Nommer un DPO (obligatoire pour certaines organisations) et tenir un registre de traitements conforme à l\'Art.30 du RGPD.'},
-  {id:'r2', domain:'Conformité réglementaire', framework:'NIS2 Art.21', risk:'medium',
-   text:'Les exigences NIS2 applicables à votre secteur ont-elles été analysées et un plan de mise en conformité initié ?',
-   rec:'Réaliser un gap analysis NIS2 : identifier si vous êtes entité essentielle/importante, évaluer les écarts et prioriser les actions.'},
-  {id:'r3', domain:'Conformité réglementaire', framework:'ISO 27001 A.6.3', risk:'medium',
-   text:'Les employés reçoivent-ils une formation et sensibilisation à la cybersécurité au minimum une fois par an ?',
-   rec:'Déployer un programme de sensibilisation annuel : phishing simulé, e-learning, et charte informatique signée par tous.'},
+  // CONTINUITÉ
+  {id:'b1',domain:'Continuité',framework:'ISO 27001 A.5.29',risk:'high',sectors:'all',
+   text:'Si vos systèmes tombent demain — ransomware, panne matérielle, sinistre — combien de temps vous faudrait-il pour reprendre une activité minimale ? Et avez-vous un plan écrit pour y arriver ?',
+   rec:'Définissez au minimum deux chiffres pour vos systèmes critiques : combien de temps vous pouvez vous permettre d\'être à l\'arrêt (RTO), et jusqu\'où vous pouvez vous permettre de perdre des données (RPO). Ces deux indicateurs guident toute votre stratégie de continuité. Testez le plan au moins une fois par an.'},
+  {id:'b2',domain:'Continuité',framework:'NIS2 Art.21',risk:'medium',sectors:'all',
+   text:'Savez-vous précisément de quels prestataires et services cloud vous dépendez pour fonctionner — et avez-vous des plans si l\'un d\'eux tombe ou vous fait défaut ?',
+   rec:'La chaîne d\'approvisionnement IT est devenue un vecteur d\'attaque majeur. Listez vos dépendances critiques, vérifiez que vos contrats incluent des clauses de sécurité et des SLA clairs, et assurez-vous d\'avoir des alternatives ou des procédures de secours pour les plus critiques.'},
 
-  // ── DÉVELOPPEMENT SÉCURISÉ (ISO A.8.25)
-  {id:'d1', domain:'Dev sécurisé', framework:'ISO 27001 A.8.25', risk:'medium',
-   text:'Les pratiques de développement sécurisé (SAST, revue de code, gestion des dépendances) sont-elles intégrées dans votre pipeline CI/CD ?',
-   rec:'Intégrer SAST (SonarQube, Semgrep), SCA (Snyk, Dependabot) et secrets detection (GitGuardian) dans votre pipeline DevSecOps.'},
-  {id:'d2', domain:'Dev sécurisé', framework:'ISO 27001 A.8.29', risk:'medium',
-   text:'Des tests de sécurité (tests de pénétration, DAST) sont-ils réalisés avant chaque mise en production majeure ?',
-   rec:'Intégrer OWASP ZAP pour le DAST automatisé. Réaliser un pentest externe annuel sur les applications exposées.'},
+  // CONFORMITÉ RÉGLEMENTAIRE
+  {id:'r1',domain:'Conformité réglementaire',framework:'RGPD / ISO 27001',risk:'high',sectors:'all',
+   text:'Savez-vous précisément quelles données personnelles vous collectez et traitez ? Avez-vous un registre de ces traitements — et quelqu\'un qui veille à ce que vous respectez le RGPD ?',
+   rec:'Le registre des traitements (Art. 30 RGPD) n\'est pas optionnel. C\'est un document qui liste ce que vous collectez, pourquoi, combien de temps vous le gardez, et qui y accède. Si vous traitez des données sensibles ou à grande échelle, la désignation d\'un DPO est obligatoire.'},
+  {id:'r2',domain:'Conformité réglementaire',framework:'NIS2 Art.21',risk:'medium',sectors:'all',
+   text:'NIS2 est en vigueur depuis octobre 2024. Avez-vous analysé si elle vous concerne — et si oui, commencé à vous y préparer ?',
+   rec:'Beaucoup d\'organisations sont soumises à NIS2 sans le savoir encore. Faites un gap analysis : êtes-vous entité essentielle ou importante ? Quelles mesures vous manquent ? L\'ANSSI publie des ressources gratuites pour vous aider à démarrer.'},
+  {id:'r3',domain:'Conformité réglementaire',framework:'ISO 27001 A.6.3',risk:'medium',sectors:'all',
+   text:'Vos employés sont-ils sensibilisés à la cybersécurité au moins une fois par an — au-delà du mail de rappel que personne ne lit ?',
+   rec:'L\'humain reste le principal vecteur d\'attaque : phishing, ingénierie sociale, mots de passe faibles. Une heure de formation par an avec un vrai cas pratique vaut mieux que 10 emails ignorés. Les exercices de faux phishing (GoPhish, par exemple) sont particulièrement efficaces pour ancrer les bons réflexes.'},
+
+  // DEV SÉCURISÉ (SaaS uniquement)
+  {id:'d1',domain:'Dev sécurisé',framework:'ISO 27001 A.8.25',risk:'medium',sectors:'Technologies / SaaS',
+   text:'La sécurité est-elle intégrée dans votre chaîne de développement — analyse de code, vérification des dépendances, détection de secrets — ou est-ce qu\'elle n\'arrive qu\'après coup, quand quelqu\'un pense à y regarder ?',
+   rec:'Intégrer la sécurité dans le pipeline CI/CD (DevSecOps), c\'est attraper les problèmes avant qu\'ils arrivent en production. SonarQube pour l\'analyse de code, Snyk ou Dependabot pour les dépendances, GitGuardian pour les secrets : ces outils ont tous des versions gratuites qui suffisent pour démarrer.'},
+  {id:'d2',domain:'Dev sécurisé',framework:'ISO 27001 A.8.29',risk:'medium',sectors:'Technologies / SaaS',
+   text:'Testez-vous activement la sécurité de vos applications avant chaque mise en production importante — pas seulement les fonctionnalités, mais aussi les vulnérabilités ?',
+   rec:'OWASP ZAP pour le DAST automatisé s\'intègre directement dans votre pipeline et détecte les failles courantes (injections, XSS, mauvaises configurations). Pour aller plus loin, un pentest externe annuel sur vos applications exposées est recommandé — et souvent requis par vos clients enterprise.'},
 ];
 
-const DOMAINS = [...new Set(QUESTIONS.map(q => q.domain))];
-const SECTIONS = DOMAINS;
-let answers = {};
-let currentSection = 0;
+const DOMAINS=[...new Set(QUESTIONS.map(q=>q.domain))];
+let answers={},currentSection=0,orgContext={sector:null,size:null,nis2Status:null},radarChart=null;
 
-function startQuiz() {
-  document.getElementById('intro').classList.add('hidden');
-  document.getElementById('quiz').classList.remove('hidden');
-  renderSectionTabs();
-  renderSection();
+function showScreen(id){
+  ['intro','onboarding','quiz','results'].forEach(s=>{
+    const el=document.getElementById(s);
+    if(!el)return;
+    el.classList.add('hidden');el.style.display='';
+  });
+  const t=document.getElementById(id);
+  if(t){t.classList.remove('hidden');if(id==='results')t.style.display='block';}
 }
 
-function renderSectionTabs() {
-  const tabs = document.getElementById('sectionTabs');
-  tabs.innerHTML = SECTIONS.map((s, i) => {
-    const sectionQs = QUESTIONS.filter(q => q.domain === s);
-    const answered = sectionQs.filter(q => answers[q.id] !== undefined).length;
-    const isDone = answered === sectionQs.length;
-    const isActive = i === currentSection;
-    const cls = isDone ? 'done' : (isActive ? 'active' : '');
-    return `<button class="section-tab ${cls}" onclick="jumpSection(${i})">${s}</button>`;
+function getActiveQs(){return QUESTIONS.filter(q=>q.sectors==='all'||q.sectors===orgContext.sector);}
+function getActiveDomains(){return[...new Set(getActiveQs().map(q=>q.domain))];}
+
+function selectOnboard(key,value,btn){
+  btn.parentElement.querySelectorAll('.onboard-opt').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  orgContext[key]=value;
+  if(orgContext.sector&&orgContext.size)computeNis2();
+  document.getElementById('startQuizBtn').disabled=!(orgContext.sector&&orgContext.size);
+}
+
+function computeNis2(){
+  const{sector,size}=orgContext;
+  const isCrit=NIS2_CRITICAL.includes(sector),isImp=NIS2_IMPORTANT.includes(sector);
+  const isSmall=size==='Micro (< 10 employés)'||size==='Petite (10-49)';
+  let status,label,bg,bd,desc;
+  if((isCrit||isImp)&&!isSmall){
+    if(isCrit&&(size==='Grande (250+)'||size==='Moyenne (50-249)')){
+      status='essentielle';label='Entité essentielle NIS2';bg='rgba(239,68,68,.12)';bd='rgba(239,68,68,.4)';
+      desc='Les obligations sont renforcées : vous devez notifier l\'ANSSI dans les 24h en cas d\'incident, vous soumettre à des audits, et votre direction est personnellement responsable.';
+    }else{
+      status='importante';label='Entité importante NIS2';bg='rgba(245,158,11,.12)';bd='rgba(245,158,11,.4)';
+      desc='NIS2 s\'applique à vous : mesures de gestion des risques obligatoires, notification des incidents sous 72h. Moins contraignant qu\'une entité essentielle, mais ça reste du sérieux.';
+    }
+  }else{
+    status='hors-scope';label='Hors périmètre NIS2';bg='rgba(0,229,160,.1)';bd='rgba(0,229,160,.3)';
+    desc='Vous n\'êtes pas dans le périmètre NIS2 pour l\'instant. Les bonnes pratiques ISO 27001 restent pertinentes — et vos clients ou partenaires pourraient vous les demander un jour.';
+  }
+  orgContext.nis2Status=status;
+  document.getElementById('nis2Result').innerHTML=`<div class="nis2-badge" style="background:${bg};border:1px solid ${bd};color:var(--text)">${label}</div><p style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6">${desc}</p>`;
+}
+
+function startQuiz(){answers={};showScreen('quiz');currentSection=0;renderTabs();renderSection();}
+
+function renderTabs(){
+  document.getElementById('sectionTabs').innerHTML=getActiveDomains().map((d,i)=>{
+    const qs=getActiveQs().filter(q=>q.domain===d);
+    const done=qs.filter(q=>answers[q.id]!==undefined).length===qs.length;
+    return`<button class="section-tab ${done?'done':i===currentSection?'active':''}" onclick="jumpTo(${i})">${d}</button>`;
   }).join('');
 }
 
-function renderSection() {
-  const domain = SECTIONS[currentSection];
-  const sectionQs = QUESTIONS.filter(q => q.domain === domain);
-  const container = document.getElementById('questionsContainer');
-  container.innerHTML = sectionQs.map(q => `
-    <div class="question-card ${answers[q.id] !== undefined ? 'answered' : ''}" id="card-${q.id}">
+function renderSection(){
+  const domain=getActiveDomains()[currentSection];
+  const qs=getActiveQs().filter(q=>q.domain===domain);
+  const isPrio=orgContext.nis2Status==='essentielle'&&['Gestion des incidents','Gouvernance'].includes(domain);
+  document.getElementById('questionsContainer').innerHTML=qs.map(q=>`
+    <div class="question-card ${answers[q.id]!==undefined?'answered':''} ${isPrio?'priority':''}" id="card-${q.id}">
       <div class="question-meta">
         <span class="question-tag">${q.framework}</span>
-        <span class="question-risk risk-${q.risk}">${q.risk.toUpperCase()}</span>
+        <div class="question-badges">
+          ${isPrio?'<span class="priority-star">★ priorité NIS2</span>':''}
+          <span class="question-risk risk-${q.risk}">${q.risk==='high'?'critique':q.risk==='medium'?'important':'à surveiller'}</span>
+        </div>
       </div>
       <div class="question-text">${q.text}</div>
       <div class="options">
-        ${['Non (0%)', 'Partiel (33%)', 'Avancé (66%)', 'Complet (100%)'].map((opt, idx) => `
-          <button class="option-btn ${answers[q.id] === idx ? 'selected-'+idx : ''}"
-            onclick="selectAnswer('${q.id}', ${idx}, this)">
-            ${opt}
-          </button>
-        `).join('')}
+        ${[['Non, pas du tout','selected-0'],['On a commencé, mais c\'est partiel','selected-1'],['C\'est en place, mais perfectible','selected-2'],['Oui, c\'est solide','selected-3']].map(([label,cls],idx)=>
+          `<button class="option-btn ${answers[q.id]===idx?cls:''}" onclick="pick('${q.id}',${idx},this)">${label}</button>`
+        ).join('')}
       </div>
-    </div>
-  `).join('');
-  updateProgress();
+    </div>`).join('');
+  updateProg();
 }
 
-function selectAnswer(qId, value, btn) {
-  answers[qId] = value;
-  const card = document.getElementById('card-' + qId);
+function pick(qId,v,btn){
+  answers[qId]=v;
+  const card=document.getElementById('card-'+qId);
   card.classList.add('answered');
-  card.querySelectorAll('.option-btn').forEach((b, i) => {
-    b.className = 'option-btn' + (i === value ? ' selected-' + value : '');
+  const labels=['selected-0','selected-1','selected-2','selected-3'];
+  card.querySelectorAll('.option-btn').forEach((b,i)=>{b.className='option-btn'+(i===v?' '+labels[i]:'');});
+  updateProg();renderTabs();
+}
+
+function updateProg(){
+  const total=getActiveQs().length,done=Object.keys(answers).length;
+  document.getElementById('progressBar').style.width=(done/total*100)+'%';
+  document.getElementById('progressLabel').textContent=`${done} / ${total}`;
+}
+
+function jumpTo(i){currentSection=i;renderTabs();renderSection();}
+function prevSection(){if(currentSection>0){currentSection--;renderTabs();renderSection();}}
+function nextSection(){
+  const doms=getActiveDomains();
+  if(currentSection<doms.length-1){currentSection++;renderTabs();renderSection();}
+  else showResultsScreen();
+}
+
+function showResultsScreen(){
+  showScreen('results');
+  const qs=getActiveQs();
+  const domainScores={};
+  getActiveDomains().forEach(d=>{
+    const dqs=qs.filter(q=>q.domain===d);
+    domainScores[d]=Math.round(dqs.reduce((a,q)=>a+((answers[q.id]??0)/3)*100,0)/dqs.length);
   });
-  updateProgress();
-  renderSectionTabs();
-}
+  const global=Math.round(Object.values(domainScores).reduce((a,b)=>a+b,0)/Object.keys(domainScores).length);
+  window._res={global,domainScores,qs};
 
-function updateProgress() {
-  const total = QUESTIONS.length;
-  const done = Object.keys(answers).length;
-  const pct = (done / total) * 100;
-  document.getElementById('progressBar').style.width = pct + '%';
-  document.getElementById('progressLabel').textContent = `${done} / ${total}`;
-}
+  document.getElementById('globalScore').textContent=global;
+  const circ=2*Math.PI*70,arc=document.getElementById('scoreArc');
+  arc.style.strokeDasharray=circ;arc.style.strokeDashoffset=circ-(global/100)*circ;
+  arc.style.stroke=global>=70?'#00e5a0':global>=40?'#f59e0b':'#ef4444';
 
-function jumpSection(i) { currentSection = i; renderSectionTabs(); renderSection(); }
-function prevSection() { if (currentSection > 0) { currentSection--; renderSectionTabs(); renderSection(); } }
-function nextSection() {
-  if (currentSection < SECTIONS.length - 1) { currentSection++; renderSectionTabs(); renderSection(); }
-  else showResults();
-}
+  const b=document.getElementById('maturityBadge');
+  if(global>=80){b.textContent='Niveau avancé';b.style.cssText='background:rgba(0,229,160,.15);color:#00e5a0;border:1px solid rgba(0,229,160,.4);';}
+  else if(global>=60){b.textContent='Niveau intermédiaire';b.style.cssText='background:rgba(59,130,246,.15);color:#3b82f6;border:1px solid rgba(59,130,246,.4);';}
+  else if(global>=40){b.textContent='En cours de structuration';b.style.cssText='background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.4);';}
+  else{b.textContent='Les bases restent à poser';b.style.cssText='background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.4);';}
 
-function showResults() {
-  document.getElementById('quiz').classList.add('hidden');
-  document.getElementById('results').style.display = 'block';
+  if(orgContext.sector){
+    document.getElementById('contextPill').innerHTML=
+      `<span>${orgContext.sector}</span><span style="color:var(--border)">·</span><span>${orgContext.size}</span>`+
+      (orgContext.nis2Status?`<span style="color:var(--border)">·</span><span>NIS2 ${orgContext.nis2Status}</span>`:'');
+  }
 
-  // compute domain scores
-  const domainScores = {};
-  DOMAINS.forEach(d => {
-    const qs = QUESTIONS.filter(q => q.domain === d);
-    const answered = qs.filter(q => answers[q.id] !== undefined);
-    if (answered.length === 0) { domainScores[d] = 0; return; }
-    const sum = answered.reduce((acc, q) => acc + (answers[q.id] / 3) * 100, 0);
-    domainScores[d] = Math.round(sum / qs.length);
-  });
-
-  const global = Math.round(Object.values(domainScores).reduce((a,b)=>a+b,0) / DOMAINS.length);
-
-  // score ring
-  document.getElementById('globalScore').textContent = global;
-  const circumference = 2 * Math.PI * 70;
-  const offset = circumference - (global / 100) * circumference;
-  const arc = document.getElementById('scoreArc');
-  arc.style.strokeDasharray = circumference;
-  arc.style.strokeDashoffset = offset;
-  const color = global >= 70 ? '#00e5a0' : global >= 40 ? '#f59e0b' : '#ef4444';
-  arc.style.stroke = color;
-
-  // maturity badge
-  const badge = document.getElementById('maturityBadge');
-  if (global >= 80) { badge.textContent = '🟢 AVANCÉ'; badge.style.background='rgba(0,229,160,0.15)'; badge.style.color='#00e5a0'; badge.style.border='1px solid rgba(0,229,160,0.4)'; }
-  else if (global >= 60) { badge.textContent = '🔵 INTERMÉDIAIRE'; badge.style.background='rgba(59,130,246,0.15)'; badge.style.color='#3b82f6'; badge.style.border='1px solid rgba(59,130,246,0.4)'; }
-  else if (global >= 40) { badge.textContent = '🟡 EN DÉVELOPPEMENT'; badge.style.background='rgba(245,158,11,0.15)'; badge.style.color='#f59e0b'; badge.style.border='1px solid rgba(245,158,11,0.4)'; }
-  else { badge.textContent = '🔴 INITIAL'; badge.style.background='rgba(239,68,68,0.15)'; badge.style.color='#ef4444'; badge.style.border='1px solid rgba(239,68,68,0.4)'; }
-
-  // domain grid
-  const domainColors = ['#00e5a0','#7c3aed','#3b82f6','#f59e0b','#ef4444','#ec4899','#14b8a6'];
-  document.getElementById('domainGrid').innerHTML = DOMAINS.map((d,i) => {
-    const s = domainScores[d];
-    const c = s >= 70 ? '#00e5a0' : s >= 40 ? '#f59e0b' : '#ef4444';
-    return `<div class="domain-card">
-      <div class="domain-name">${d}</div>
-      <div class="domain-score" style="color:${c}">${s}<span style="font-size:14px;color:var(--muted)">/100</span></div>
-      <div class="domain-bar"><div class="domain-bar-fill" style="width:${s}%;background:${c}"></div></div>
-    </div>`;
+  const aDomains=Object.keys(domainScores);
+  document.getElementById('domainGrid').innerHTML=aDomains.map(d=>{
+    const s=domainScores[d],c=s>=70?'#00e5a0':s>=40?'#f59e0b':'#ef4444';
+    return`<div class="domain-card"><div class="domain-name">${d}</div><div class="domain-score" style="color:${c}">${s}<span style="font-size:14px;color:var(--muted)">/100</span></div><div class="domain-bar"><div class="domain-bar-fill" style="width:${s}%;background:${c}"></div></div></div>`;
   }).join('');
 
-  // radar chart
-  const ctx = document.getElementById('radarChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'radar',
-    data: {
-      labels: DOMAINS,
-      datasets: [{
-        label: 'Score de maturité',
-        data: DOMAINS.map(d => domainScores[d]),
-        backgroundColor: 'rgba(0,229,160,0.1)',
-        borderColor: '#00e5a0',
-        borderWidth: 2,
-        pointBackgroundColor: '#00e5a0',
-        pointRadius: 4,
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: { r: {
-        min: 0, max: 100,
-        ticks: { color: '#6b6b8a', font: { family: 'Space Mono', size: 10 }, stepSize: 25 },
-        grid: { color: '#2a2a40' },
-        pointLabels: { color: '#e8e8f0', font: { family: 'Space Mono', size: 11 } }
-      }},
-      plugins: { legend: { labels: { color: '#e8e8f0', font: { family: 'Space Mono' } } } }
-    }
+  if(radarChart)radarChart.destroy();
+  radarChart=new Chart(document.getElementById('radarChart').getContext('2d'),{
+    type:'radar',
+    data:{labels:aDomains,datasets:[{label:'Votre score',data:aDomains.map(d=>domainScores[d]),backgroundColor:'rgba(0,229,160,.1)',borderColor:'#00e5a0',borderWidth:2,pointBackgroundColor:'#00e5a0',pointRadius:4}]},
+    options:{responsive:true,scales:{r:{min:0,max:100,ticks:{color:'#6b6b8a',font:{family:'Space Mono',size:10},stepSize:25},grid:{color:'#2a2a40'},pointLabels:{color:'#e8e8f0',font:{family:'Space Mono',size:11}}}},plugins:{legend:{labels:{color:'#e8e8f0',font:{family:'Space Mono'}}}}}
   });
 
-  // remediations — sort by score asc (worst first), then risk
-  const riskWeight = { high: 3, medium: 2, low: 1 };
-  const items = QUESTIONS
-    .filter(q => answers[q.id] !== undefined && answers[q.id] < 3)
-    .map(q => ({ ...q, score: (answers[q.id] / 3) * 100 }))
-    .sort((a,b) => (a.score - b.score) || (riskWeight[b.risk] - riskWeight[a.risk]))
-    .slice(0, 10);
-
-  document.getElementById('remediationList').innerHTML = items.map(q => `
+  const rW={high:3,medium:2,low:1};
+  const items=qs.filter(q=>answers[q.id]!==undefined&&answers[q.id]<3).map(q=>({...q,sc:(answers[q.id]/3)*100})).sort((a,b)=>(a.sc-b.sc)||(rW[b.risk]-rW[a.risk])).slice(0,10);
+  document.getElementById('remediationList').innerHTML=items.map(q=>`
     <div class="remediation-item prio-${q.risk}">
-      <div class="remediation-header">
-        <div class="remediation-q">${q.text}</div>
-        <span class="question-risk risk-${q.risk}">${q.risk.toUpperCase()}</span>
-      </div>
-      <div class="remediation-rec">💡 ${q.rec}</div>
-    </div>
-  `).join('') || '<p style="color:var(--muted);text-align:center;padding:20px">🎉 Aucune remédiation majeure identifiée !</p>';
+      <div class="remediation-header"><div class="remediation-q">${q.text}</div><span class="question-risk risk-${q.risk}">${q.risk==='high'?'critique':q.risk==='medium'?'important':'à surveiller'}</span></div>
+      <div class="remediation-rec">→ ${q.rec}</div>
+    </div>`).join('')||'<p style="color:var(--muted);text-align:center;padding:20px">Rien à signaler — votre posture est solide sur l\'ensemble des domaines.</p>';
 }
 
-function exportPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const global = document.getElementById('globalScore').textContent;
-  const maturity = document.getElementById('maturityBadge').textContent;
+// ── IA
+function openApiKeyModal(){
+  const saved=localStorage.getItem('cc_api_key');
+  if(saved)document.getElementById('apiKeyInput').value=saved;
+  document.getElementById('apiModal').classList.remove('hidden');
+}
+function closeApiKeyModal(){document.getElementById('apiModal').classList.add('hidden');}
 
-  doc.setFillColor(10, 10, 15);
-  doc.rect(0, 0, 210, 297, 'F');
+async function confirmApiKey(){
+  const key=document.getElementById('apiKeyInput').value.trim();
+  if(!key.startsWith('sk-ant-')){alert('Cette clé ne ressemble pas à une clé Anthropic valide. Elle doit commencer par sk-ant-');return;}
+  localStorage.setItem('cc_api_key',key);
+  closeApiKeyModal();
+  await runAIAnalysis(key);
+}
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22); doc.setTextColor(0, 229, 160);
-  doc.text('ComplianceCheck', 20, 30);
+async function runAIAnalysis(apiKey){
+  const{global,domainScores,qs}=window._res;
+  const rW={high:3,medium:2,low:1};
+  const weak=qs.filter(q=>answers[q.id]!==undefined&&answers[q.id]<2).sort((a,b)=>rW[b.risk]-rW[a.risk]).slice(0,5)
+    .map(q=>`- [${q.risk}] ${q.text} (score actuel : ${Math.round((answers[q.id]/3)*100)}%)`).join('\n');
 
-  doc.setFontSize(11); doc.setTextColor(180, 180, 200);
-  doc.text('Rapport d\'auto-évaluation ISO 27001 / NIS2', 20, 40);
-  doc.text('Généré le : ' + new Date().toLocaleDateString('fr-FR'), 20, 48);
+  const prompt=`Tu es un expert en cybersécurité et conformité (ISO 27001, NIS2, RGPD). Tu t'adresses directement au responsable d'une organisation qui vient de faire une auto-évaluation.
 
-  doc.setFontSize(36); doc.setTextColor(0, 229, 160);
-  doc.text(global + '/100', 20, 75);
+Contexte : Secteur = ${orgContext.sector||'non précisé'}, Taille = ${orgContext.size||'non précisée'}, Statut NIS2 = ${orgContext.nis2Status||'non déterminé'}
+Score global : ${global}/100
+Scores par domaine : ${Object.entries(domainScores).map(([k,v])=>`${k} : ${v}/100`).join(', ')}
 
-  doc.setFontSize(14); doc.setTextColor(200, 200, 220);
-  doc.text('Niveau de maturité : ' + maturity.replace(/[^\w\s]/gi, '').trim(), 20, 88);
+Points les plus faibles identifiés :
+${weak||'Aucun point critique — score supérieur à 66% sur toutes les questions'}
 
-  doc.setFontSize(10); doc.setTextColor(107, 107, 138);
-  doc.line(20, 95, 190, 95);
-  doc.text('TOP PRIORITÉS DE REMÉDIATION', 20, 103);
+Écris une analyse en français, directe et utile, structurée ainsi :
 
-  let y = 113;
-  const items = QUESTIONS
-    .filter(q => answers[q.id] !== undefined && answers[q.id] < 3)
-    .sort((a,b) => answers[a.id] - answers[b.id])
-    .slice(0, 8);
+**CE QUE CES RÉSULTATS DISENT VRAIMENT**
+[2-3 phrases qui donnent une lecture honnête de la situation — sans langue de bois]
 
-  items.forEach((q, i) => {
-    doc.setFontSize(10); doc.setTextColor(232, 232, 240);
-    const lines = doc.splitTextToSize(`${i+1}. [${q.risk.toUpperCase()}] ${q.text}`, 170);
-    doc.text(lines, 20, y); y += lines.length * 5 + 3;
-    doc.setTextColor(107, 107, 138); doc.setFontSize(9);
-    const rec = doc.splitTextToSize('→ ' + q.rec, 165);
-    doc.text(rec, 25, y); y += rec.length * 4 + 6;
-    if (y > 270) { doc.addPage(); doc.setFillColor(10,10,15); doc.rect(0,0,210,297,'F'); y = 20; }
+**CE QUI FONCTIONNE**
+[2-3 points forts réels, en expliquant pourquoi c'est important dans leur contexte]
+
+**LES 3 CHOSES À FAIRE EN PRIORITÉ**
+[Actions concrètes, dans les 30 prochains jours, basées sur les vraies lacunes — pas des généralités]
+
+**PLAN SUR 6 MOIS**
+[3 phases réalistes : ce qu'on règle d'abord, ce qu'on structure ensuite, ce qu'on pérennise en dernier]
+
+**CE QUE LA LOI VOUS DEMANDE**
+[Ce qui est obligatoire pour eux spécifiquement — NIS2, RGPD — formulé clairement, sans jargon]
+
+Ton : direct, humain, comme un expert qui parle à quelqu'un qu'il veut aider — pas un consultant qui rédige un rapport. Maximum 500 mots.`;
+
+  document.getElementById('aiContent').innerHTML=`<div class="ai-loading"><div class="ai-dot"></div><div class="ai-dot"></div><div class="ai-dot"></div><span style="margin-left:4px">Lecture en cours...</span></div>`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:1000,messages:[{role:'user',content:prompt}]})
+    });
+    if(!res.ok)throw new Error(`Erreur API (${res.status})`);
+    const data=await res.json();
+    const text=data.content?.[0]?.text||'Impossible de lire la réponse.';
+    const html=text
+      .replace(/\*\*(.+?)\*\*/g,'<strong style="color:var(--accent);font-family:var(--font-mono);font-size:11px;display:block;margin-top:18px;margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase">$1</strong>')
+      .replace(/\n/g,'<br/>');
+    document.getElementById('aiContent').innerHTML=`<div class="ai-content">${html}</div>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Analyse générée par Claude · ${new Date().toLocaleDateString('fr-FR')}</span>
+        <button class="btn btn-outline" style="font-size:11px;padding:6px 14px;" onclick="openApiKeyModal()">↺ Régénérer</button>
+      </div>`;
+  }catch(err){
+    document.getElementById('aiContent').innerHTML=`<div style="color:#ef4444;font-size:13px">Quelque chose s'est mal passé : ${err.message}<br><br><button class="btn btn-outline" onclick="openApiKeyModal()">Réessayer</button></div>`;
+  }
+}
+
+// ── HISTORISATION
+function saveEvaluation(){
+  const{global,domainScores}=window._res;
+  const h=JSON.parse(localStorage.getItem('cc_history')||'[]');
+  h.push({id:Date.now(),date:new Date().toLocaleDateString('fr-FR'),global,domainScores,sector:orgContext.sector,size:orgContext.size,nis2Status:orgContext.nis2Status});
+  localStorage.setItem('cc_history',JSON.stringify(h));
+  const btn=document.querySelector('.btn-save');
+  btn.textContent='Résultat sauvegardé';btn.style.borderColor='#00e5a0';btn.style.color='#00e5a0';
+  setTimeout(()=>{btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:7px;vertical-align:middle"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Sauvegarder ce résultat';btn.style.borderColor='';btn.style.color='';},2500);
+}
+
+function loadHistory(){
+  const h=JSON.parse(localStorage.getItem('cc_history')||'[]');
+  const sec=document.getElementById('historySection'),list=document.getElementById('historyList');
+  if(!h.length){sec.classList.add('hidden');return;}
+  sec.classList.remove('hidden');
+  list.innerHTML=h.slice().reverse().map(e=>{
+    const c=e.global>=70?'#00e5a0':e.global>=40?'#f59e0b':'#ef4444';
+    return`<div class="history-item"><div><div class="history-date">${e.date}</div><div class="history-sector">${e.sector||'—'} · ${e.size||'—'}</div></div><div class="history-score" style="color:${c}">${e.global}/100</div><div><button class="btn-icon" onclick="deleteHist(${e.id})" title="Supprimer">✕</button></div></div>`;
+  }).join('');
+  if(h.length>=2)renderCompare(h);
+}
+
+function deleteHist(id){
+  localStorage.setItem('cc_history',JSON.stringify(JSON.parse(localStorage.getItem('cc_history')||'[]').filter(e=>e.id!==id)));
+  loadHistory();
+}
+
+function renderCompare(h){
+  document.getElementById('compareSection').classList.remove('hidden');
+  const last6=h.slice(-6);
+  if(window._cChart)window._cChart.destroy();
+  window._cChart=new Chart(document.getElementById('compareChart').getContext('2d'),{
+    type:'line',
+    data:{labels:last6.map(e=>e.date),datasets:[{label:'Score global',data:last6.map(e=>e.global),borderColor:'#00e5a0',backgroundColor:'rgba(0,229,160,.1)',borderWidth:2,tension:.4,fill:true,pointBackgroundColor:'#00e5a0',pointRadius:5}]},
+    options:{responsive:true,scales:{y:{min:0,max:100,ticks:{color:'#6b6b8a',font:{family:'Space Mono',size:10}},grid:{color:'#2a2a40'}},x:{ticks:{color:'#6b6b8a',font:{family:'Space Mono',size:10}},grid:{color:'#2a2a40'}}},plugins:{legend:{labels:{color:'#e8e8f0',font:{family:'Space Mono',size:11}}}}}
   });
+}
 
+// ── PDF
+function exportPDF(){
+  const{jsPDF}=window.jspdf,doc=new jsPDF();
+  const global=document.getElementById('globalScore').textContent;
+  const maturity=document.getElementById('maturityBadge').textContent;
+  doc.setFillColor(10,10,15);doc.rect(0,0,210,297,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(22);doc.setTextColor(0,229,160);doc.text('ComplianceCheck',20,30);
+  doc.setFontSize(10);doc.setTextColor(180,180,200);
+  doc.text('Rapport ISO 27001 / NIS2 — '+new Date().toLocaleDateString('fr-FR'),20,40);
+  if(orgContext.sector)doc.text(`${orgContext.sector} · ${orgContext.size} · NIS2 : ${orgContext.nis2Status||'N/A'}`,20,48);
+  doc.setFontSize(36);doc.setTextColor(0,229,160);doc.text(global+'/100',20,72);
+  doc.setFontSize(13);doc.setTextColor(200,200,220);doc.text(maturity.replace(/[^\w\s\u00C0-\u017E]/gi,'').trim(),20,84);
+
+  const{domainScores,qs}=window._res;
+  const aDoms=Object.keys(domainScores);
+  doc.setFontSize(9);doc.setTextColor(107,107,138);doc.line(20,91,190,91);doc.text('RÉSULTATS PAR DOMAINE',20,99);
+  let y=109;
+  aDoms.forEach(d=>{
+    const s=domainScores[d],col=s>=70?[0,229,160]:s>=40?[245,158,11]:[239,68,68];
+    doc.setTextColor(...col);doc.text(`${d} : ${s}/100`,25,y);y+=8;
+  });
+  y+=4;doc.setTextColor(107,107,138);doc.line(20,y,190,y);y+=10;doc.text('CE QU\'ON RECOMMANDE EN PRIORITÉ',20,y);y+=10;
+  const rW={high:3,medium:2,low:1};
+  qs.filter(q=>answers[q.id]!==undefined&&answers[q.id]<3).sort((a,b)=>(answers[a.id]-answers[b.id])||(rW[b.risk]-rW[a.risk])).slice(0,7).forEach((q,i)=>{
+    doc.setFontSize(9);doc.setTextColor(232,232,240);
+    const l=doc.splitTextToSize(`${i+1}. ${q.text}`,170);doc.text(l,20,y);y+=l.length*5+2;
+    doc.setTextColor(107,107,138);doc.setFontSize(8);const r=doc.splitTextToSize('→ '+q.rec,165);doc.text(r,25,y);y+=r.length*4+6;
+    if(y>265){doc.addPage();doc.setFillColor(10,10,15);doc.rect(0,0,210,297,'F');y=20;}
+  });
+  const aiEl=document.querySelector('.ai-content');
+  if(aiEl){const t=aiEl.innerText.trim();if(t&&!t.includes('Lire l\'analyse')){doc.addPage();doc.setFillColor(10,10,15);doc.rect(0,0,210,297,'F');doc.setFontSize(12);doc.setTextColor(124,58,237);doc.text('ANALYSE IA',20,30);doc.setFontSize(8);doc.setTextColor(200,200,220);const al=doc.splitTextToSize(t.slice(0,2500),170);doc.text(al,20,42);}}
   doc.save('ComplianceCheck_Rapport.pdf');
 }
+
+showScreen('intro');
+loadHistory();
 </script>
 </body>
 </html>
