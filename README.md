@@ -6,7 +6,7 @@
 ![NIS2](https://img.shields.io/badge/NIS2-EU-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-→ **[Faire le diagnostic](https://mvanita.github.io/Compliance-Check/)**
+ **[Faire le diagnostic](https://mvanita.github.io/Compliance-Check/)**
 
 ---
 
